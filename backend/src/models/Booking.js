@@ -7,6 +7,9 @@ const bookingSchema = new mongoose.Schema(
     applianceType: { type: String, required: true, trim: true },
     brand: { type: String, trim: true },
     model: { type: String, trim: true },
+    tonnage: { type: String, trim: true },
+    gasType: { type: String, trim: true },
+    technicianName: { type: String, trim: true },
     serviceType: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
     date: { type: String, required: true },
@@ -14,7 +17,7 @@ const bookingSchema = new mongoose.Schema(
     description: { type: String, trim: true },
     status: {
       type: String,
-      enum: ["Pending", "Completed"],
+      enum: ["Pending", "Assigned", "In Progress", "Completed"],
       default: "Pending"
     }
   },

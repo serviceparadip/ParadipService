@@ -10,6 +10,8 @@ const initialState = {
   applianceType: "",
   brand: "",
   model: "",
+  tonnage: "",
+  gasType: "",
   serviceType: "",
   address: "",
   date: "",
@@ -31,6 +33,36 @@ const acBrandOptions = [
   "Daikin",
   "Onida"
 ];
+
+const acServiceOptions = [
+  "AC Repair and Service",
+  "AC Installation",
+  "AC Uninstallation",
+  "AC Gas Filling",
+  "AC Remote Repair",
+  "AC Maintenance"
+];
+
+const acTonnageOptions = ["1 Ton", "1.5 Ton", "2 Ton"];
+const acGasTypeOptions = ["R22", "R410"];
+
+const applianceServiceMap = {
+  ac: acServiceOptions,
+  refrigerator: ["Refrigerator Repairing Service", "Refrigerator Gas Filling"],
+  "washing machine": ["Washing Machine Repairing Service"],
+  microwave: ["Microwave Oven Repairing"],
+  geyser: ["Geyser Repair"]
+};
+
+const normalizeText = (value = "") => value.trim().toLowerCase();
+
+const getServiceOptions = (applianceType = "") => {
+  const normalizedAppliance = normalizeText(applianceType);
+  if (!normalizedAppliance) return [];
+
+  const matchedKey = Object.keys(applianceServiceMap).find((key) => normalizedAppliance.includes(key));
+  return matchedKey ? applianceServiceMap[matchedKey] : [];
+};
 
 const BookNowPage = () => {
   const [searchParams] = useSearchParams();
@@ -81,37 +113,98 @@ const BookNowPage = () => {
     };
   }, []);
 
-  const isACBooking = form.applianceType.trim().toLowerCase().includes("ac");
+  const isACBooking = normalizeText(form.applianceType).includes("ac");
+  const isACGasService = isACBooking && normalizeText(form.serviceType).includes("gas");
   const isApplianceLocked = Boolean(prefilledApplianceType);
-  const isServiceLocked = Boolean(prefilledServiceType);
-  const normalizedCategory = form.applianceType.trim().toLowerCase();
-  const normalizedService = form.serviceType.trim().toLowerCase();
+  const normalizedCategory = normalizeText(form.applianceType);
+  const normalizedService = normalizeText(form.serviceType);
+  const normalizedGasType = normalizeText(form.gasType);
+  const normalizedTonnage = normalizeText(form.tonnage);
+  const serviceOptions = getServiceOptions(form.applianceType);
+
+  useEffect(() => {
+    if (!serviceOptions.length) return;
+
+    const hasMatch = serviceOptions.some(
+      (option) => normalizeText(option) === normalizeText(form.serviceType)
+    );
+
+    if (!hasMatch) {
+      setForm((prev) => ({ ...prev, serviceType: serviceOptions[0] }));
+    }
+  }, [form.applianceType]);
 
   const matchedPricing = pricingRows
     .filter((item) => {
-      const category = item.category?.toLowerCase() || "";
-      const serviceName = item.serviceName?.toLowerCase() || "";
+      const category = normalizeText(item.category);
+      const serviceName = normalizeText(item.serviceName);
 
       const categoryMatch = normalizedCategory
         ? category.includes(normalizedCategory) || normalizedCategory.includes(category)
         : false;
-      const serviceMatch = normalizedService
-        ? serviceName.includes(normalizedService) || normalizedService.includes(serviceName)
-        : false;
 
-      if (normalizedService) {
-        return serviceMatch || (categoryMatch && serviceName.includes("service"));
+      if (!categoryMatch) {
+        return false;
       }
 
-      return categoryMatch;
+      if (!normalizedService) {
+        return true;
+      }
+
+      if (serviceName.includes(normalizedService) || normalizedService.includes(serviceName)) {
+        return true;
+      }
+
+      if (normalizedService.includes("gas")) {
+        if (!serviceName.includes("gas")) {
+          return false;
+        }
+
+        if (normalizedGasType && !serviceName.includes(normalizedGasType)) {
+          return false;
+        }
+
+        if (normalizedTonnage && !serviceName.includes(normalizedTonnage)) {
+          return false;
+        }
+
+        return true;
+      }
+
+      if (normalizedService.includes("install")) {
+        return serviceName.includes("install") || serviceName.includes("dismant");
+      }
+
+      if (normalizedService.includes("repair")) {
+        return serviceName.includes("service") || serviceName.includes("visit") || serviceName.includes("repair");
+      }
+
+      return false;
     })
     .slice(0, 4);
 
   const updateField = (event) => {
-    setForm((prev) => ({
-      ...prev,
-      [event.target.name]: event.target.value
-    }));
+    const { name, value } = event.target;
+
+    setForm((prev) => {
+      const nextForm = {
+        ...prev,
+        [name]: value
+      };
+
+      if (name === "applianceType" && !normalizeText(value).includes("ac")) {
+        nextForm.brand = "";
+        nextForm.model = "";
+        nextForm.tonnage = "";
+        nextForm.gasType = "";
+      }
+
+      if (name === "serviceType" && !normalizeText(value).includes("gas")) {
+        nextForm.gasType = "";
+      }
+
+      return nextForm;
+    });
   };
 
   const validate = () => {
@@ -122,6 +215,16 @@ const BookNowPage = () => {
 
     if (isACBooking && (!form.brand.trim() || !form.model.trim())) {
       toast.error("Please enter AC brand and model");
+      return false;
+    }
+
+    if (isACBooking && !form.tonnage.trim()) {
+      toast.error("Please select AC tonnage");
+      return false;
+    }
+
+    if (isACGasService && !form.gasType.trim()) {
+      toast.error("Please select AC gas type");
       return false;
     }
 
@@ -165,15 +268,30 @@ const BookNowPage = () => {
           required
           className={`rounded-lg border border-skyBlue/30 px-3 py-3 ${isApplianceLocked ? "cursor-not-allowed bg-slate-100 text-slate-600" : ""}`}
         />
-        <input
-          name="serviceType"
-          value={form.serviceType}
-          onChange={updateField}
-          placeholder="Service Type"
-          readOnly={isServiceLocked}
-          required
-          className={`rounded-lg border border-skyBlue/30 px-3 py-3 ${isServiceLocked ? "cursor-not-allowed bg-slate-100 text-slate-600" : ""}`}
-        />
+        {serviceOptions.length > 0 ? (
+          <select
+            name="serviceType"
+            value={form.serviceType}
+            onChange={updateField}
+            required
+            className="rounded-lg border border-skyBlue/30 px-3 py-3"
+          >
+            {serviceOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            name="serviceType"
+            value={form.serviceType}
+            onChange={updateField}
+            placeholder="Service Type"
+            required
+            className="rounded-lg border border-skyBlue/30 px-3 py-3"
+          />
+        )}
         {isACBooking && (
           <>
             <select
@@ -190,6 +308,20 @@ const BookNowPage = () => {
                 </option>
               ))}
             </select>
+            <select
+              name="tonnage"
+              value={form.tonnage}
+              onChange={updateField}
+              required
+              className="rounded-lg border border-skyBlue/30 px-3 py-3"
+            >
+              <option value="">Select AC Tonnage</option>
+              {acTonnageOptions.map((tonnageOption) => (
+                <option key={tonnageOption} value={tonnageOption}>
+                  {tonnageOption}
+                </option>
+              ))}
+            </select>
             <input
               name="model"
               value={form.model}
@@ -198,6 +330,22 @@ const BookNowPage = () => {
               required
               className="rounded-lg border border-skyBlue/30 px-3 py-3"
             />
+            {isACGasService && (
+              <select
+                name="gasType"
+                value={form.gasType}
+                onChange={updateField}
+                required
+                className="rounded-lg border border-skyBlue/30 px-3 py-3"
+              >
+                <option value="">Select Gas Type</option>
+                {acGasTypeOptions.map((gasOption) => (
+                  <option key={gasOption} value={gasOption}>
+                    {gasOption}
+                  </option>
+                ))}
+              </select>
+            )}
           </>
         )}
         <input name="address" value={form.address} onChange={updateField} placeholder="Address" required className="rounded-lg border border-skyBlue/30 px-3 py-3 md:col-span-2" />

@@ -54,63 +54,6 @@ const defaultTestimonials = [
   }
 ];
 
-const expertiseCards = [
-  {
-    title: "AC Repair and Troubleshooting",
-    copy: "Fast fixes for cooling, airflow and noise issues",
-    query: "AC Repair and Troubleshooting",
-    icon: "REPAIR"
-  },
-  {
-    title: "AC Installation and Uninstallation",
-    copy: "Seamless setup and removal for hassle-free transitions",
-    query: "AC Installation and Uninstallation",
-    icon: "INSTALL"
-  },
-  {
-    title: "AC Gas Refilling and Leakage Repair",
-    copy: "Enhanced cooling and efficiency through refrigerant management",
-    query: "AC Gas Refilling and Leakage Repair",
-    icon: "GAS"
-  },
-  {
-    title: "AC Compressor and PCB Repair",
-    copy: "Ensuring smooth performance with expert compressor and circuit board solutions",
-    query: "AC Compressor and PCB Repair",
-    icon: "PCB"
-  },
-  {
-    title: "AC Coil and Condenser Cleaning",
-    copy: "Enhance cooling with thorough AC servicing and maintenance",
-    query: "AC Coil and Condenser Cleaning",
-    icon: "COIL"
-  },
-  {
-    title: "AC Fan Motor and Thermostat Repair",
-    copy: "Reliable repairs for stable temperature control and optimal performance",
-    query: "AC Fan Motor and Thermostat Repair",
-    icon: "FAN"
-  },
-  {
-    title: "AC Duct and Vent Cleaning",
-    copy: "Deep cleaning to remove dust, allergens, and enhance airflow",
-    query: "AC Duct and Vent Cleaning",
-    icon: "DUCT"
-  },
-  {
-    title: "AC Annual Maintenance Service",
-    copy: "Regular servicing to boost efficiency and prevent breakdowns",
-    query: "AC Annual Maintenance Service",
-    icon: "AMC"
-  }
-];
-
-const IconBadge = ({ label }) => (
-  <div className="-mt-14 inline-flex h-28 w-28 items-center justify-center rounded-full border-2 border-white/15 bg-[#23161d] text-sm font-extrabold tracking-wide text-white shadow-lg">
-    {label}
-  </div>
-);
-
 const parseNumericPrice = (value) => {
   const match = String(value || "").match(/(\d+(?:\.\d+)?)/);
   return match ? Number(match[1]) : null;
@@ -341,35 +284,6 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="section-shell py-10">
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-8 shadow-sm md:px-10">
-          <p className="text-base font-bold text-[#eb5f6a]">Our Expertise</p>
-          <h2 className="mt-2 font-heading text-4xl font-extrabold text-[#1f1b2b]">
-            Professional AC Repair Solutions for Reliable Cooling
-          </h2>
-          <p className="mt-3 text-lg text-slate-700">
-            From installation and gas filling to deep troubleshooting and annual maintenance, our team delivers fast,
-            affordable, and expert solutions.
-          </p>
-        </div>
-
-        <div className="mt-16 grid gap-x-7 gap-y-16 sm:grid-cols-2 xl:grid-cols-4">
-          {expertiseCards.map((card) => (
-            <article key={card.title} className="rounded-2xl bg-[#eb5f6a] px-6 pb-6 pt-0 text-center text-white shadow-lg">
-              <IconBadge label={card.icon} />
-              <h3 className="mt-5 font-heading text-4xl font-extrabold leading-snug">{card.title}</h3>
-              <p className="mt-3 text-xl leading-relaxed text-white/95">{card.copy}</p>
-              <Link
-                to={`/book-now?applianceType=AC&serviceType=${encodeURIComponent(card.query)}`}
-                className="mt-6 inline-flex rounded-lg bg-white px-8 py-3 text-xl font-bold text-[#1f1b2b] transition hover:bg-slate-100"
-              >
-                Book Now
-              </Link>
-            </article>
-          ))}
         </div>
       </section>
 

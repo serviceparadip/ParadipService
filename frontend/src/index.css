@@ -17,6 +17,14 @@ body {
   min-height: 100vh;
 }
 
+html[data-theme="slate"] body {
+  color: #102538;
+  background:
+    radial-gradient(circle at 8% 8%, rgba(54, 114, 161, 0.2), transparent 35%),
+    radial-gradient(circle at 85% 0%, rgba(33, 121, 97, 0.15), transparent 30%),
+    linear-gradient(180deg, #eef4f8 0%, #dfeaf3 45%, #e5f2ec 100%);
+}
+
 * {
   box-sizing: border-box;
 }

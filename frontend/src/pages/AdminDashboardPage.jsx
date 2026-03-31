@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import SEO from "../components/SEO";
 import { useAdminAuth } from "../context/AdminAuthContext";
@@ -32,6 +32,12 @@ const AdminDashboardPage = () => {
   const [testimonials, setTestimonials] = useState([]);
   const [heroForm, setHeroForm] = useState(heroSlideInit);
   const [testimonialForm, setTestimonialForm] = useState(testimonialInit);
+  const [bookingSearch, setBookingSearch] = useState("");
+  const [bookingStatusFilter, setBookingStatusFilter] = useState("All");
+  const [bookingApplianceFilter, setBookingApplianceFilter] = useState("All");
+  const [bookingFromDate, setBookingFromDate] = useState("");
+  const [bookingToDate, setBookingToDate] = useState("");
+  const [bookingDrafts, setBookingDrafts] = useState({});
 
   const loadData = async () => {
     try {
@@ -56,9 +62,110 @@ const AdminDashboardPage = () => {
     loadData();
   }, []);
 
-  const updateStatus = async (id, status) => {
+  useEffect(() => {
+    const next = {};
+    bookings.forEach((item) => {
+      next[item._id] = {
+        status: item.status || "Pending",
+        technicianName: item.technicianName || ""
+      };
+    });
+    setBookingDrafts(next);
+  }, [bookings]);
+
+  const bookingStatusOptions = useMemo(() => ["All", "Pending", "Assigned", "In Progress", "Completed"], []);
+
+  const bookingApplianceOptions = useMemo(() => {
+    const unique = new Set(bookings.map((item) => item.applianceType));
+    return ["All", ...Array.from(unique)];
+  }, [bookings]);
+
+  const filteredBookings = useMemo(() => {
+    const search = bookingSearch.trim().toLowerCase();
+
+    return bookings.filter((item) => {
+      const searchMatch = !search
+        ? true
+        : `${item.name} ${item.phone} ${item.applianceType} ${item.serviceType} ${item.address}`
+            .toLowerCase()
+            .includes(search);
+
+      const statusMatch = bookingStatusFilter === "All" ? true : item.status === bookingStatusFilter;
+      const applianceMatch = bookingApplianceFilter === "All" ? true : item.applianceType === bookingApplianceFilter;
+      const fromMatch = bookingFromDate ? item.date >= bookingFromDate : true;
+      const toMatch = bookingToDate ? item.date <= bookingToDate : true;
+
+      return searchMatch && statusMatch && applianceMatch && fromMatch && toMatch;
+    });
+  }, [bookings, bookingSearch, bookingStatusFilter, bookingApplianceFilter, bookingFromDate, bookingToDate]);
+
+  const exportBookingsCsv = () => {
+    if (!filteredBookings.length) {
+      toast.error("No bookings to export");
+      return;
+    }
+
+    const headers = [
+      "Name",
+      "Phone",
+      "Appliance",
+      "Service",
+      "Technician",
+      "Brand",
+      "Model",
+      "Tonnage",
+      "Gas Type",
+      "Address",
+      "Date",
+      "Time",
+      "Status",
+      "Description"
+    ];
+
+    const csvRows = filteredBookings.map((item) => {
+      const values = [
+        item.name,
+        item.phone,
+        item.applianceType,
+        item.serviceType,
+        item.technicianName || "",
+        item.brand || "",
+        item.model || "",
+        item.tonnage || "",
+        item.gasType || "",
+        item.address,
+        item.date,
+        item.time,
+        item.status,
+        item.description || ""
+      ];
+
+      return values
+        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .join(",");
+    });
+
+    const csv = [headers.join(","), ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const fileUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.setAttribute("download", `bookings-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(fileUrl);
+
+    toast.success("Bookings exported");
+  };
+
+  const updateStatus = async (id) => {
+    const draft = bookingDrafts[id] || { status: "Pending", technicianName: "" };
     try {
-      await api.put(`/bookings/${id}`, { status });
+      await api.put(`/bookings/${id}`, {
+        status: draft.status,
+        technicianName: draft.technicianName
+      });
       toast.success("Booking status updated");
       loadData();
     } catch (error) {
@@ -166,27 +273,117 @@ const AdminDashboardPage = () => {
       </div>
 
       <section className="glass-card p-5">
-        <h2 className="font-heading text-2xl font-semibold text-brandBlue">Bookings</h2>
+        <div className="flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
+          <h2 className="font-heading text-2xl font-semibold text-brandBlue">Bookings</h2>
+          <button
+            onClick={exportBookingsCsv}
+            className="rounded-lg bg-brandBlue px-4 py-2 text-sm font-bold text-white hover:bg-skyBlue"
+          >
+            Export CSV
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <input
+            value={bookingSearch}
+            onChange={(e) => setBookingSearch(e.target.value)}
+            placeholder="Search name, phone, service"
+            className="rounded-lg border border-skyBlue/30 px-3 py-2"
+          />
+          <select
+            value={bookingStatusFilter}
+            onChange={(e) => setBookingStatusFilter(e.target.value)}
+            className="rounded-lg border border-skyBlue/30 px-3 py-2"
+          >
+            {bookingStatusOptions.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+          <select
+            value={bookingApplianceFilter}
+            onChange={(e) => setBookingApplianceFilter(e.target.value)}
+            className="rounded-lg border border-skyBlue/30 px-3 py-2"
+          >
+            {bookingApplianceOptions.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={bookingFromDate}
+            onChange={(e) => setBookingFromDate(e.target.value)}
+            className="rounded-lg border border-skyBlue/30 px-3 py-2"
+          />
+          <input
+            type="date"
+            value={bookingToDate}
+            onChange={(e) => setBookingToDate(e.target.value)}
+            className="rounded-lg border border-skyBlue/30 px-3 py-2"
+          />
+        </div>
+
+        <p className="mt-3 text-sm font-semibold text-slate-600">
+          Showing {filteredBookings.length} of {bookings.length} bookings
+        </p>
+
         <div className="mt-4 space-y-3">
-          {bookings.map((booking) => (
+          {filteredBookings.map((booking) => (
             <div key={booking._id} className="rounded-xl border border-skyBlue/20 p-4">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="font-semibold text-brandBlue">{booking.name} - {booking.applianceType}</p>
                   <p className="text-sm text-slate-600">{booking.phone} | {booking.date} {booking.time}</p>
+                  {booking.technicianName && (
+                    <p className="text-sm text-slate-600">Technician: {booking.technicianName}</p>
+                  )}
                   {(booking.brand || booking.model) && (
                     <p className="text-sm text-slate-600">{booking.brand || "N/A"} | {booking.model || "N/A"}</p>
                   )}
+                  {(booking.tonnage || booking.gasType) && (
+                    <p className="text-sm text-slate-600">{booking.tonnage || "N/A"} | {booking.gasType || "N/A"}</p>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <span className="rounded-full bg-skyBlue/15 px-3 py-1 text-sm font-semibold text-brandBlue">
                     {booking.status}
                   </span>
+                  <select
+                    value={bookingDrafts[booking._id]?.status || booking.status}
+                    onChange={(e) =>
+                      setBookingDrafts((prev) => ({
+                        ...prev,
+                        [booking._id]: {
+                          ...(prev[booking._id] || {}),
+                          status: e.target.value
+                        }
+                      }))
+                    }
+                    className="rounded-lg border border-skyBlue/30 px-3 py-2 text-sm"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Assigned">Assigned</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                  <input
+                    value={bookingDrafts[booking._id]?.technicianName || ""}
+                    onChange={(e) =>
+                      setBookingDrafts((prev) => ({
+                        ...prev,
+                        [booking._id]: {
+                          ...(prev[booking._id] || {}),
+                          technicianName: e.target.value
+                        }
+                      }))
+                    }
+                    placeholder="Technician name"
+                    className="rounded-lg border border-skyBlue/30 px-3 py-2 text-sm"
+                  />
                   <button
-                    onClick={() => updateStatus(booking._id, booking.status === "Pending" ? "Completed" : "Pending")}
+                    onClick={() => updateStatus(booking._id)}
                     className="rounded-lg bg-mintGreen px-3 py-2 text-xs font-bold text-white"
                   >
-                    Toggle
+                    Update
                   </button>
                 </div>
               </div>
