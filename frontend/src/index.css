@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: "Manrope", sans-serif;
+  color: #13354f;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(79, 163, 217, 0.22), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(43, 175, 127, 0.2), transparent 30%),
+    linear-gradient(180deg, #f7fcff 0%, #e8f5ff 45%, #ecfff6 100%);
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.section-shell {
+  @apply mx-auto max-w-6xl px-4 md:px-8;
+}
+
+.glass-card {
+  @apply rounded-2xl border border-white/60 bg-white/75 backdrop-blur shadow-service;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(11, 79, 138, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(11, 79, 138, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
