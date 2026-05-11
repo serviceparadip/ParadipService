@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: paradipservice-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free  # Change to starter for production
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false  # Must be set in Render dashboard
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        value: admin@paradipservice.com
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: BUSINESS_EMAIL
+        value: hello@paradipservice.in
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        value: "ParadipService <no-reply@paradipservice.in>"
+
+  - type: static_site
+    name: paradipservice-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://paradipservice-backend.onrender.com/api

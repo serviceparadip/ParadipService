@@ -6,6 +6,7 @@ import { api } from "../services/api";
 
 const initialState = {
   name: "",
+  email: "",
   phone: "",
   applianceType: "",
   brand: "",
@@ -208,8 +209,32 @@ const BookNowPage = () => {
   };
 
   const validate = () => {
+    if (!form.name.trim()) {
+      toast.error("Name is required");
+      return false;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      toast.error("Valid email is required");
+      return false;
+    }
+
     if (!/^\d{10}$/.test(form.phone)) {
       toast.error("Phone number must be 10 digits");
+      return false;
+    }
+
+    if (!form.date) {
+      toast.error("Please select a date");
+      return false;
+    }
+
+    const selectedDate = new Date(form.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      toast.error("Booking date cannot be in the past");
       return false;
     }
 
@@ -240,9 +265,19 @@ const BookNowPage = () => {
       await api.post("/bookings", form);
       toast.success("Booking submitted successfully");
       setForm({
-        ...initialState,
+        name: "",
+        email: "",
+        phone: "",
         applianceType: prefilledApplianceType,
-        serviceType: prefilledServiceType
+        brand: "",
+        model: "",
+        tonnage: "",
+        gasType: "",
+        serviceType: prefilledServiceType,
+        address: "",
+        date: "",
+        time: "",
+        description: ""
       });
     } catch (error) {
       toast.error(error.response?.data?.message || "Booking failed");
@@ -258,6 +293,7 @@ const BookNowPage = () => {
 
       <form onSubmit={onSubmit} className="glass-card mt-8 grid gap-4 p-6 md:grid-cols-2">
         <input name="name" value={form.name} onChange={updateField} placeholder="Name" required className="rounded-lg border border-skyBlue/30 px-3 py-3" />
+        <input name="email" value={form.email} onChange={updateField} placeholder="Email" type="email" required className="rounded-lg border border-skyBlue/30 px-3 py-3" />
         <input name="phone" value={form.phone} onChange={updateField} placeholder="Contact No" required className="rounded-lg border border-skyBlue/30 px-3 py-3" />
         <input
           name="applianceType"
@@ -349,7 +385,7 @@ const BookNowPage = () => {
           </>
         )}
         <input name="address" value={form.address} onChange={updateField} placeholder="Address" required className="rounded-lg border border-skyBlue/30 px-3 py-3 md:col-span-2" />
-        <input type="date" name="date" value={form.date} onChange={updateField} required className="rounded-lg border border-skyBlue/30 px-3 py-3" />
+        <input type="date" name="date" value={form.date} onChange={updateField} required min={new Date().toISOString().split('T')[0]} className="rounded-lg border border-skyBlue/30 px-3 py-3" />
         <input type="time" name="time" value={form.time} onChange={updateField} required className="rounded-lg border border-skyBlue/30 px-3 py-3" />
         <textarea
           name="description"

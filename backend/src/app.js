@@ -14,7 +14,25 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// CORS configuration for production
+const allowedOrigins = [
+  "https://paradipservice-frontend.onrender.com",
+  "http://localhost:5173",
+  "http://localhost:3000"
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get("/api/health", (req, res) => {

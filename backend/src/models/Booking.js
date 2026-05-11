@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const bookingSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, trim: true, lowercase: true },
     phone: { type: String, required: true, trim: true },
     applianceType: { type: String, required: true, trim: true },
     brand: { type: String, trim: true },
@@ -17,11 +18,19 @@ const bookingSchema = new mongoose.Schema(
     description: { type: String, trim: true },
     status: {
       type: String,
-      enum: ["Pending", "Assigned", "In Progress", "Completed"],
+      enum: ["Pending", "Assigned", "In Progress", "Completed", "Cancelled"],
       default: "Pending"
-    }
+    },
+    bookingRef: { type: String, unique: true, sparse: true }
   },
   { timestamps: true }
 );
+
+bookingSchema.pre('save', async function(next) {
+  if (!this.bookingRef) {
+    this.bookingRef = `PD${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+  }
+  next();
+});
 
 export default mongoose.model("Booking", bookingSchema);

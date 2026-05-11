@@ -32,9 +32,11 @@ const sendBookingEmail = async (booking) => {
   await transporter.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: process.env.BUSINESS_EMAIL,
-    subject: `New Booking - ${booking.applianceType}`,
+    subject: `New Booking - ${booking.applianceType} [${booking.bookingRef}]`,
     html: `<h2>New Booking Received</h2>
+      <p><strong>Booking Ref:</strong> ${booking.bookingRef}</p>
       <p><strong>Name:</strong> ${booking.name}</p>
+      <p><strong>Email:</strong> ${booking.email}</p>
       <p><strong>Phone:</strong> ${booking.phone}</p>
       <p><strong>Appliance:</strong> ${booking.applianceType}</p>
       <p><strong>Brand:</strong> ${booking.brand || "N/A"}</p>
@@ -47,12 +49,19 @@ const sendBookingEmail = async (booking) => {
       <p><strong>Description:</strong> ${booking.description || "N/A"}</p>`
   });
 
-  if (process.env.CUSTOMER_CONFIRMATION_EMAIL) {
+  if (booking.email) {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: process.env.CUSTOMER_CONFIRMATION_EMAIL,
-      subject: "Booking Confirmation - ParadipService",
-      text: `Hi ${booking.name}, your service booking has been received. Our team will contact you soon.`
+      to: booking.email,
+      subject: `Booking Confirmation - ParadipService [${booking.bookingRef}]`,
+      html: `<h2>Booking Confirmed!</h2>
+      <p>Hi ${booking.name},</p>
+      <p>Your service booking has been received and confirmed.</p>
+      <p><strong>Booking Reference:</strong> ${booking.bookingRef}</p>
+      <p><strong>Service:</strong> ${booking.serviceType}</p>
+      <p><strong>Scheduled Date & Time:</strong> ${booking.date} ${booking.time}</p>
+      <p>Our team will contact you soon at ${booking.phone}.</p>
+      <p>Thank you for choosing ParadipService!</p>`
     });
   }
 };
@@ -112,59 +121,128 @@ const sendWhatsAppStatusUpdate = async (booking) => {
 };
 
 export const createBooking = async (req, res) => {
-  const booking = await Booking.create(req.body);
-
   try {
-    await sendBookingEmail(booking);
-  } catch (error) {
-    console.error("Booking email error:", error.message);
-  }
+    if (!req.body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(req.body.email)) {
+      return res.status(400).json({ message: "Valid email is required" });
+    }
 
-  try {
-    await sendWhatsAppBooking(booking);
-  } catch (error) {
-    console.error("WhatsApp notification error:", error.message);
-  }
+    const booking = await Booking.create(req.body);
 
-  return res.status(201).json({
-    message: "Booking created successfully",
-    booking
-  });
+    try {
+      await sendBookingEmail(booking);
+    } catch (error) {
+      console.error("Booking email error:", error.message);
+    }
+
+    try {
+      await sendWhatsAppBooking(booking);
+    } catch (error) {
+      console.error("WhatsApp notification error:", error.message);
+    }
+
+    return res.status(201).json({
+      message: "Booking created successfully",
+      booking,
+      bookingRef: booking.bookingRef
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Booking creation failed" });
+  }
 };
 
 export const getBookings = async (req, res) => {
-  const bookings = await Booking.find().sort({ createdAt: -1 });
-  return res.json(bookings);
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const bookings = await Booking.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Booking.countDocuments();
+
+    return res.json({
+      bookings,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to fetch bookings" });
+  }
 };
 
 export const updateBookingStatus = async (req, res) => {
-  const { status, technicianName } = req.body;
-  const allowedStatuses = ["Pending", "Assigned", "In Progress", "Completed"];
-
-  if (!allowedStatuses.includes(status)) {
-    return res.status(400).json({ message: "Invalid status" });
-  }
-
-  const payload = { status };
-  if (typeof technicianName === "string") {
-    payload.technicianName = technicianName.trim();
-  }
-
-  const booking = await Booking.findByIdAndUpdate(
-    req.params.id,
-    payload,
-    { new: true }
-  );
-
-  if (!booking) {
-    return res.status(404).json({ message: "Booking not found" });
-  }
-
   try {
-    await sendWhatsAppStatusUpdate(booking);
-  } catch (error) {
-    console.error("WhatsApp status update error:", error.message);
-  }
+    const { status, technicianName } = req.body;
+    const allowedStatuses = ["Pending", "Assigned", "In Progress", "Completed", "Cancelled"];
 
-  return res.json({ message: "Status updated", booking });
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const payload = { status };
+    if (typeof technicianName === "string") {
+      payload.technicianName = technicianName.trim();
+    }
+
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      payload,
+      { new: true }
+    );
+
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    try {
+      await sendWhatsAppStatusUpdate(booking);
+    } catch (error) {
+      console.error("WhatsApp status update error:", error.message);
+    }
+
+    return res.json({ message: "Status updated", booking });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to update booking" });
+  }
+};
+
+export const cancelBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (["Completed", "Cancelled"].includes(booking.status)) {
+      return res.status(400).json({ message: `Cannot cancel a ${booking.status.toLowerCase()} booking` });
+    }
+
+    booking.status = "Cancelled";
+    await booking.save();
+
+    const transporter = createTransport();
+    if (transporter && booking.email) {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: booking.email,
+        subject: `Booking Cancelled - ${booking.bookingRef}`,
+        html: `<h2>Booking Cancelled</h2>
+        <p>Hi ${booking.name},</p>
+        <p>Your booking (${booking.bookingRef}) has been cancelled.</p>
+        <p>If you have any questions, please contact us.</p>`
+      });
+    }
+
+    return res.json({ message: "Booking cancelled", booking });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to cancel booking" });
+  }
 };
